@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary Emergency Theme -->
+    <color name="emergency_red">#D32F2F</color>
+    <color name="emergency_red_dark">#B71C1C</color>
+    <color name="emergency_red_light">#EF5350</color>
+
+    <!-- Category Colors -->
+    <color name="category_burns">#E65100</color>
+    <color name="category_bleeding">#C62828</color>
+    <color name="category_choking">#AD1457</color>
+    <color name="category_cpr">#D32F2F</color>
+    <color name="category_fractures">#4527A0</color>
+    <color name="category_poisoning">#1B5E20</color>
+
+    <!-- Severity Colors -->
+    <color name="severity_critical">#D32F2F</color>
+    <color name="severity_high">#E65100</color>
+    <color name="severity_medium">#F9A825</color>
+    <color name="severity_low">#2E7D32</color>
+
+    <!-- UI Colors -->
+    <color name="text_secondary">#757575</color>
+    <color name="card_stroke">#E0E0E0</color>
+    <color name="warning_orange">#E65100</color>
+    <color name="warning_text">#5D4037</color>
+
+    <!-- Quiz Colors -->
+    <color name="option_default">#F5F5F5</color>
+    <color name="option_text">#212121</color>
+    <color name="option_selected">#1976D2</color>
+    <color name="answer_correct">#2E7D32</color>
+    <color name="answer_wrong">#C62828</color>
+
+    <!-- Material Theme Colors -->
+    <color name="md_theme_primary">#D32F2F</color>
+    <color name="md_theme_onPrimary">#FFFFFF</color>
+    <color name="md_theme_primaryContainer">#FFDAD6</color>
+    <color name="md_theme_onPrimaryContainer">#410002</color>
+    <color name="md_theme_secondary">#775652</color>
+    <color name="md_theme_onSecondary">#FFFFFF</color>
+    <color name="md_theme_background">#FFFBFF</color>
+    <color name="md_theme_onBackground">#201A19</color>
+    <color name="md_theme_surface">#FFFBFF</color>
+    <color name="md_theme_onSurface">#201A19</color>
+</resources>

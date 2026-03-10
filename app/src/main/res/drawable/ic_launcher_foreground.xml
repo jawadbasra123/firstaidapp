@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Red cross icon -->
+    <path
+        android:fillColor="#D32F2F"
+        android:pathData="M38,30h32v48h-32z" />
+    <path
+        android:fillColor="#D32F2F"
+        android:pathData="M30,46h48v16h-48z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M42,34h24v40h-24z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,50h40v8h-40z" />
+</vector>
