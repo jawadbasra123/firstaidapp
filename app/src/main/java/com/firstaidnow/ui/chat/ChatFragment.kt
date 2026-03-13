@@ -7,13 +7,19 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.firstaidnow.FirstAidNowApp
 import com.firstaidnow.databinding.FragmentChatBinding
 
 class ChatFragment : Fragment() {
 
     private var _binding: FragmentChatBinding? = null
     private val binding get() = _binding!!
-    private val viewModel: ChatViewModel by viewModels()
+
+    // Use factory to create ViewModel with repository
+    private val viewModel: ChatViewModel by viewModels {
+        ChatViewModel.Factory((requireActivity().application as FirstAidNowApp).repository)
+    }
+
     private lateinit var chatAdapter: ChatAdapter
 
     override fun onCreateView(

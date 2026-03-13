@@ -18,9 +18,10 @@
         android:theme="@style/Theme.FirstAidNow"
         tools:targetApi="34">
 
+        <!-- 修改这里的占位符名称，与 build.gradle.kts 保持一致 -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="${MAPS_API_KEY}" />
+            android:value="${GOOGLE_MAPS_API_KEY}" />
 
         <activity
             android:name=".ui.MainActivity"
