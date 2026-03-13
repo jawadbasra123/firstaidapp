@@ -6,13 +6,14 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.firstaidnow.BuildConfig
 import com.firstaidnow.repository.FirstAidRepository
 import kotlinx.coroutines.launch
 
 class ChatViewModel(private val repository: FirstAidRepository) : ViewModel() {
 
-    // TODO: Gemini API Key
-    private val API_KEY = "AIzaSyBkRprP83KoYNRr-f7yZs_KGpfZ6xc6RMg"
+    // 现在安全地从 BuildConfig 中读取 Key
+    private val API_KEY = BuildConfig.GEMINI_API_KEY
 
     data class ChatMessage(
         val text: String,
@@ -45,7 +46,7 @@ class ChatViewModel(private val repository: FirstAidRepository) : ViewModel() {
                     updated.add(ChatMessage(reply, isUser = false))
                     _messages.value = updated
                 } else {
-                    addErrorMessage("AI returned an empty response. Check if your API key is valid.")
+                    addErrorMessage("AI returned an empty response. Check your API key in local.properties.")
                 }
 
             } catch (e: Exception) {
