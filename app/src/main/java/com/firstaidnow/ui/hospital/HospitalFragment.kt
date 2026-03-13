@@ -1,8 +1,11 @@
 package com.firstaidnow.ui.hospital
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -10,7 +13,10 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import com.firstaidnow.BuildConfig
 import com.firstaidnow.R
+import com.firstaidnow.data.remote.RetrofitClient
 import com.firstaidnow.databinding.FragmentHospitalBinding
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
@@ -18,8 +24,11 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
+import kotlinx.coroutines.launch
 
 class HospitalFragment : Fragment(), OnMapReadyCallback {
 
@@ -28,24 +37,16 @@ class HospitalFragment : Fragment(), OnMapReadyCallback {
     private var googleMap: GoogleMap? = null
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
+    private val MAPS_API_KEY = BuildConfig.GOOGLE_MAPS_API_KEY
+
     private val locationPermissionRequest = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        when {
-            permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true -> {
-                enableMyLocation()
-            }
-            permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true -> {
-                enableMyLocation()
-            }
-            else -> {
-                Toast.makeText(
-                    requireContext(),
-                    "Location permission needed to find nearby hospitals",
-                    Toast.LENGTH_LONG
-                ).show()
-                showDefaultLocation()
-            }
+        if (permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
+            enableMyLocation()
+        } else {
+            Toast.makeText(requireContext(), "Permission denied", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -59,18 +60,10 @@ class HospitalFragment : Fragment(), OnMapReadyCallback {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
 
-        val mapFragment = childFragmentManager.findFragmentById(R.id.mapFragment)
-            as? SupportMapFragment
-            ?: SupportMapFragment.newInstance().also {
-                childFragmentManager.beginTransaction()
-                    .replace(R.id.mapContainer, it)
-                    .commit()
-            }
-
-        mapFragment.getMapAsync(this)
+        val mapFragment = childFragmentManager.findFragmentById(R.id.mapFragment) as SupportMapFragment?
+        mapFragment?.getMapAsync(this)
 
         binding.btnFindHospitals.setOnClickListener {
             checkLocationPermission()
@@ -79,30 +72,36 @@ class HospitalFragment : Fragment(), OnMapReadyCallback {
 
     override fun onMapReady(map: GoogleMap) {
         googleMap = map
-        map.uiSettings.apply {
-            isZoomControlsEnabled = true
-            isCompassEnabled = true
-            isMyLocationButtonEnabled = true
+        map.uiSettings.isZoomControlsEnabled = true
+        checkLocationPermission()
+
+        // 设置标记点击监听
+        map.setOnMarkerClickListener { marker ->
+            val hospitalName = marker.title
+            val position = marker.position
+            binding.tvHospitalInfo.text = "Selected: $hospitalName\nTap 'Navigate' to get directions."
+
+            // 显示导航按钮 (假设布局里有这个按钮)
+            // 这里我们直接弹出一个对话框或者更新 UI
+            marker.showInfoWindow()
+            true
         }
 
-        checkLocationPermission()
+        // 设置 InfoWindow 点击监听（点击气泡导航）
+        map.setOnInfoWindowClickListener { marker ->
+            launchNavigation(marker.position, marker.title ?: "Hospital")
+        }
     }
 
     private fun checkLocationPermission() {
-        when {
-            ContextCompat.checkSelfPermission(
-                requireContext(), Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED -> {
-                enableMyLocation()
-            }
-            else -> {
-                locationPermissionRequest.launch(
-                    arrayOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    )
-                )
-            }
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+            == PackageManager.PERMISSION_GRANTED) {
+            enableMyLocation()
+        } else {
+            locationPermissionRequest.launch(arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ))
         }
     }
 
@@ -112,46 +111,77 @@ class HospitalFragment : Fragment(), OnMapReadyCallback {
             map.isMyLocationEnabled = true
             fusedLocationClient.lastLocation.addOnSuccessListener { location ->
                 if (location != null) {
-                    val userLatLng = LatLng(location.latitude, location.longitude)
-                    map.animateCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, 14f))
-                    addSampleHospitalMarkers(userLatLng)
-                    binding.tvHospitalInfo.text = "Showing nearby hospitals. Tap markers for details."
-                } else {
-                    showDefaultLocation()
+                    val currentLatLng = LatLng(location.latitude, location.longitude)
+                    map.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 14f))
+                    searchNearbyHospitals(currentLatLng)
                 }
             }
         } catch (e: SecurityException) {
-            showDefaultLocation()
+            Log.e("HospitalFragment", "Permission error", e)
         }
     }
 
-    private fun showDefaultLocation() {
-        val defaultLocation = LatLng(37.7749, -122.4194) // San Francisco
-        googleMap?.moveCamera(CameraUpdateFactory.newLatLngZoom(defaultLocation, 12f))
-        addSampleHospitalMarkers(defaultLocation)
-        binding.tvHospitalInfo.text = "Enable location services to find hospitals near you."
+    private fun searchNearbyHospitals(location: LatLng) {
+        val locationString = "${location.latitude},${location.longitude}"
+
+        binding.progressBar.visibility = View.VISIBLE
+
+        lifecycleScope.launch {
+            try {
+                val response = RetrofitClient.placesApi.getNearbyHospitals(
+                    location = locationString,
+                    apiKey = MAPS_API_KEY
+                )
+
+                if (response.status == "OK") {
+                    displayHospitals(response.results)
+                } else {
+                    Toast.makeText(requireContext(), "Error: ${response.status}", Toast.LENGTH_SHORT).show()
+                    Log.e("HospitalFragment", "Places API Error: ${response.error_message}")
+                }
+            } catch (e: Exception) {
+                Log.e("HospitalFragment", "Network error", e)
+                Toast.makeText(requireContext(), "Failed to fetch hospitals", Toast.LENGTH_SHORT).show()
+            } finally {
+                binding.progressBar.visibility = View.GONE
+            }
+        }
     }
 
-    private fun addSampleHospitalMarkers(center: LatLng) {
-        val map = googleMap ?: return
-        map.clear()
+    private fun displayHospitals(hospitals: List<com.firstaidnow.data.remote.PlaceResult>) {
+        googleMap?.clear()
 
-        // Add sample hospital markers around the user's location
-        val hospitals = listOf(
-            Pair("General Hospital", LatLng(center.latitude + 0.01, center.longitude + 0.008)),
-            Pair("Community Medical Center", LatLng(center.latitude - 0.008, center.longitude + 0.012)),
-            Pair("Children's Hospital", LatLng(center.latitude + 0.005, center.longitude - 0.01)),
-            Pair("Emergency Care Center", LatLng(center.latitude - 0.012, center.longitude - 0.005)),
-            Pair("University Hospital", LatLng(center.latitude + 0.015, center.longitude - 0.003)),
-        )
+        if (hospitals.isEmpty()) {
+            binding.tvHospitalInfo.text = "No hospitals found nearby."
+            return
+        }
 
-        for ((name, position) in hospitals) {
-            map.addMarker(
+        for (hospital in hospitals) {
+            val pos = LatLng(hospital.geometry.location.lat, hospital.geometry.location.lng)
+            googleMap?.addMarker(
                 MarkerOptions()
-                    .position(position)
-                    .title(name)
-                    .snippet("Tap for directions")
+                    .position(pos)
+                    .title(hospital.name)
+                    .snippet(hospital.vicinity ?: "Tap to navigate")
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
             )
+        }
+
+        binding.tvHospitalInfo.text = "Found ${hospitals.size} hospitals near you. Tap a marker to navigate."
+    }
+
+    private fun launchNavigation(latLng: LatLng, name: String) {
+        val gmmIntentUri = Uri.parse("google.navigation:q=${latLng.latitude},${latLng.longitude}&mode=d")
+        val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
+        mapIntent.setPackage("com.google.android.apps.maps")
+
+        if (mapIntent.resolveActivity(requireActivity().packageManager) != null) {
+            startActivity(mapIntent)
+        } else {
+            // 如果没装 Google Maps，尝试用浏览器打开
+            val webIntent = Intent(Intent.ACTION_VIEW,
+                Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${latLng.latitude},${latLng.longitude}"))
+            startActivity(webIntent)
         }
     }
 

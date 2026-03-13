@@ -8,7 +8,8 @@ import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
 
-    private const val BASE_URL = "https://generativelanguage.googleapis.com/"
+    private const val GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/"
+    private const val PLACES_BASE_URL = "https://maps.googleapis.com/"
 
     private val okHttpClient by lazy {
         OkHttpClient.Builder()
@@ -23,10 +24,19 @@ object RetrofitClient {
 
     val geminiApi: GeminiApiService by lazy {
         Retrofit.Builder()
-            .baseUrl(BASE_URL)
+            .baseUrl(GEMINI_BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(GeminiApiService::class.java)
+    }
+
+    val placesApi: PlacesApiService by lazy {
+        Retrofit.Builder()
+            .baseUrl(PLACES_BASE_URL)
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(PlacesApiService::class.java)
     }
 }
