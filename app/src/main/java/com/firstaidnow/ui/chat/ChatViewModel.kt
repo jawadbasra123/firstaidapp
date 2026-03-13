@@ -1,17 +1,18 @@
 package com.firstaidnow.ui.chat
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.firstaidnow.BuildConfig
-import com.firstaidnow.data.remote.Content
-import com.firstaidnow.data.remote.GeminiRequest
-import com.firstaidnow.data.remote.Part
-import com.firstaidnow.data.remote.RetrofitClient
+import com.firstaidnow.repository.FirstAidRepository
 import kotlinx.coroutines.launch
 
-class ChatViewModel : ViewModel() {
+class ChatViewModel(private val repository: FirstAidRepository) : ViewModel() {
+
+    // TODO: Gemini API Key
+    private val API_KEY = "AIzaSyBkRprP83KoYNRr-f7yZs_KGpfZ6xc6RMg"
 
     data class ChatMessage(
         val text: String,
@@ -25,21 +26,6 @@ class ChatViewModel : ViewModel() {
     private val _isLoading = MutableLiveData(false)
     val isLoading: LiveData<Boolean> = _isLoading
 
-    private val conversationHistory = mutableListOf<Content>()
-
-    private val systemPrompt = Content(
-        role = "user",
-        parts = listOf(
-            Part(
-                "You are a helpful first aid assistant for the FirstAidNow app. " +
-                "Provide clear, concise first aid guidance. Always remind users to call 911 " +
-                "for life-threatening emergencies. You are NOT a replacement for professional " +
-                "medical advice. Keep responses focused on first aid topics. " +
-                "Format your responses with clear steps when giving instructions."
-            )
-        )
-    )
-
     fun sendMessage(userMessage: String) {
         if (userMessage.isBlank()) return
 
@@ -47,54 +33,47 @@ class ChatViewModel : ViewModel() {
         currentMessages.add(ChatMessage(userMessage, isUser = true))
         _messages.value = currentMessages
 
-        conversationHistory.add(
-            Content(role = "user", parts = listOf(Part(userMessage)))
-        )
-
         _isLoading.value = true
 
         viewModelScope.launch {
             try {
-                val request = GeminiRequest(
-                    contents = conversationHistory,
-                    systemInstruction = systemPrompt
-                )
-
-                val response = RetrofitClient.geminiApi.generateContent(
-                    apiKey = BuildConfig.GEMINI_API_KEY,
-                    request = request
-                )
-
-                val reply = response.candidates?.firstOrNull()
-                    ?.content?.parts?.firstOrNull()?.text
-                    ?: "I'm sorry, I couldn't generate a response. Please try again."
-
-                conversationHistory.add(
-                    Content(role = "model", parts = listOf(Part(reply)))
-                )
-
-                val updated = _messages.value.orEmpty().toMutableList()
-                updated.add(ChatMessage(reply, isUser = false))
-                _messages.value = updated
+                Log.d("ChatViewModel", "Sending message to Gemini...")
+                val reply = repository.getGeminiResponse(API_KEY, userMessage)
+                
+                if (reply != null) {
+                    val updated = _messages.value.orEmpty().toMutableList()
+                    updated.add(ChatMessage(reply, isUser = false))
+                    _messages.value = updated
+                } else {
+                    addErrorMessage("AI returned an empty response. Check if your API key is valid.")
+                }
 
             } catch (e: Exception) {
-                val updated = _messages.value.orEmpty().toMutableList()
-                updated.add(
-                    ChatMessage(
-                        "Sorry, I couldn't connect to the AI service. " +
-                        "Please check your internet connection and API key. Error: ${e.message}",
-                        isUser = false
-                    )
-                )
-                _messages.value = updated
+                Log.e("ChatViewModel", "Error: ${e.message}", e)
+                addErrorMessage("Connection Error: ${e.localizedMessage}")
             } finally {
                 _isLoading.value = false
             }
         }
     }
 
+    private fun addErrorMessage(error: String) {
+        val updated = _messages.value.orEmpty().toMutableList()
+        updated.add(ChatMessage("Error: $error", isUser = false))
+        _messages.value = updated
+    }
+
     fun clearChat() {
         _messages.value = emptyList()
-        conversationHistory.clear()
+    }
+
+    class Factory(private val repository: FirstAidRepository) : ViewModelProvider.Factory {
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (modelClass.isAssignableFrom(ChatViewModel::class.java)) {
+                @Suppress("UNCHECKED_CAST")
+                return ChatViewModel(repository) as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class")
+        }
     }
 }
